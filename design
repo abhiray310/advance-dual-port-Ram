@@ -1,0 +1,153 @@
+module dual_port_ram(
+
+    input clk,
+    input reset,
+
+    // =========================
+    // PORT A
+    // =========================
+    input portA_write_enable,
+    input [3:0] portA_address,
+    input [7:0] portA_data_in,
+    output reg [7:0] portA_data_out,
+
+    // =========================
+    // PORT B
+    // =========================
+    input portB_write_enable,
+    input [3:0] portB_address,
+    input [7:0] portB_data_in,
+    output reg [7:0] portB_data_out,
+
+    // =========================
+    // STATUS FLAGS
+    // =========================
+    output reg conflict_detected,
+    output reg read_operation,
+    output reg write_operation,
+
+    // =========================
+    // MONITOR COUNTERS
+    // =========================
+    output reg [7:0] total_reads,
+    output reg [7:0] total_writes,
+    output reg [7:0] total_conflicts,
+
+    // =========================
+    // LAST OPERATION INFO
+    // =========================
+    output reg [3:0] last_accessed_address,
+    output reg [7:0] last_written_data
+
+);
+
+reg [7:0] memory [15:0];
+
+integer i;
+
+initial begin
+
+    for(i=0; i<16; i=i+1)
+        memory[i] = 8'h00;
+
+    total_reads = 0;
+    total_writes = 0;
+    total_conflicts = 0;
+
+    conflict_detected = 0;
+
+    read_operation = 0;
+    write_operation = 0;
+
+end
+
+always @(posedge clk) begin
+
+    if(reset) begin
+
+        for(i=0; i<16; i=i+1)
+            memory[i] <= 8'h00;
+
+        total_reads <= 0;
+        total_writes <= 0;
+        total_conflicts <= 0;
+
+        conflict_detected <= 0;
+
+        read_operation <= 0;
+        write_operation <= 0;
+
+    end
+
+    else begin
+
+        // reset status flags
+        conflict_detected <= 0;
+        read_operation <= 0;
+        write_operation <= 0;
+
+        // ==================================
+        // CONFLICT DETECTION
+        // ==================================
+        if(portA_write_enable &&
+           portB_write_enable &&
+           (portA_address == portB_address)) begin
+
+            conflict_detected <= 1;
+            total_conflicts <= total_conflicts + 1;
+
+        end
+
+        // ==================================
+        // PORT A
+        // ==================================
+        if(portA_write_enable) begin
+
+            memory[portA_address] <= portA_data_in;
+
+            write_operation <= 1;
+            total_writes <= total_writes + 1;
+
+            last_accessed_address <= portA_address;
+            last_written_data <= portA_data_in;
+
+        end
+
+        else begin
+
+            portA_data_out <= memory[portA_address];
+
+            read_operation <= 1;
+            total_reads <= total_reads + 1;
+
+        end
+
+        // ==================================
+        // PORT B
+        // ==================================
+        if(portB_write_enable) begin
+
+            memory[portB_address] <= portB_data_in;
+
+            write_operation <= 1;
+            total_writes <= total_writes + 1;
+
+            last_accessed_address <= portB_address;
+            last_written_data <= portB_data_in;
+
+        end
+
+        else begin
+
+            portB_data_out <= memory[portB_address];
+
+            read_operation <= 1;
+            total_reads <= total_reads + 1;
+
+        end
+
+    end
+
+end
+
+endmodule
