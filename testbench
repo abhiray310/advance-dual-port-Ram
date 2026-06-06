@@ -1,0 +1,147 @@
+`timescale 1ns / 1ps
+
+module tb_dual_port_ram;
+
+reg clk;
+reg reset;
+
+// PORT A
+reg portA_write_enable;
+reg [3:0] portA_address;
+reg [7:0] portA_data_in;
+wire [7:0] portA_data_out;
+
+// PORT B
+reg portB_write_enable;
+reg [3:0] portB_address;
+reg [7:0] portB_data_in;
+wire [7:0] portB_data_out;
+
+// STATUS
+wire conflict_detected;
+wire read_operation;
+wire write_operation;
+
+// COUNTERS
+wire [7:0] total_reads;
+wire [7:0] total_writes;
+wire [7:0] total_conflicts;
+
+// LAST INFO
+wire [3:0] last_accessed_address;
+wire [7:0] last_written_data;
+
+// DUT
+dual_port_ram uut(
+
+    .clk(clk),
+    .reset(reset),
+
+    .portA_write_enable(portA_write_enable),
+    .portA_address(portA_address),
+    .portA_data_in(portA_data_in),
+    .portA_data_out(portA_data_out),
+
+    .portB_write_enable(portB_write_enable),
+    .portB_address(portB_address),
+    .portB_data_in(portB_data_in),
+    .portB_data_out(portB_data_out),
+
+    .conflict_detected(conflict_detected),
+    .read_operation(read_operation),
+    .write_operation(write_operation),
+
+    .total_reads(total_reads),
+    .total_writes(total_writes),
+    .total_conflicts(total_conflicts),
+
+    .last_accessed_address(last_accessed_address),
+    .last_written_data(last_written_data)
+
+);
+
+// CLOCK
+always #5 clk = ~clk;
+
+initial begin
+
+    clk = 0;
+    reset = 1;
+
+    portA_write_enable = 0;
+    portB_write_enable = 0;
+
+    portA_address = 0;
+    portB_address = 0;
+
+    portA_data_in = 0;
+    portB_data_in = 0;
+
+    // RESET
+    #20;
+    reset = 0;
+
+    // ===============================
+    // WRITE USING PORT A
+    // ===============================
+    #20;
+
+    portA_write_enable = 1;
+    portA_address = 4'd1;
+    portA_data_in = 8'hAA;
+
+    #10;
+    portA_write_enable = 0;
+
+    // ===============================
+    // WRITE USING PORT B
+    // ===============================
+    #30;
+
+    portB_write_enable = 1;
+    portB_address = 4'd2;
+    portB_data_in = 8'h55;
+
+    #10;
+    portB_write_enable = 0;
+
+    // ===============================
+    // READ OPERATIONS
+    // ===============================
+    #30;
+
+    portA_address = 4'd1;
+
+    #30;
+
+    portB_address = 4'd2;
+
+    // ===============================
+    // CONFLICT CONDITION
+    // ===============================
+    #30;
+
+    portA_write_enable = 1;
+    portB_write_enable = 1;
+
+    portA_address = 4'd3;
+    portB_address = 4'd3;
+
+    portA_data_in = 8'h0F;
+    portB_data_in = 8'hF0;
+
+    #10;
+
+    portA_write_enable = 0;
+    portB_write_enable = 0;
+
+    // ===============================
+    // END
+    // ===============================
+    #100;
+
+    $finish;
+
+end
+
+endmodule
